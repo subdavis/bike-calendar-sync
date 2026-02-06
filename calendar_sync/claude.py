@@ -100,13 +100,16 @@ class SessionLogger:
             f.write("=== SESSION COMPLETE ===\n")
             f.write(f"Total tokens: {ctx.input_tokens} in / {ctx.output_tokens} out\n")
             f.write(f"Cost: ${ctx.cost_usd:.4f}\n")
-            if ctx.decision:
-                f.write(f"Decision: {ctx.decision.action.value}\n")
-                f.write(f"Reasoning: {ctx.decision.reasoning}\n")
-                if ctx.decision.event:
-                    f.write(f"Event: {ctx.decision.event.title} on {ctx.decision.event.date}\n")
-            if ctx.calendar_event_id:
-                f.write(f"Calendar event ID: {ctx.calendar_event_id}\n")
+            f.write(f"Decisions: {len(ctx.decisions)}\n")
+            for i, (decision, cal_id) in enumerate(zip(ctx.decisions, ctx.calendar_event_ids)):
+                if len(ctx.decisions) > 1:
+                    f.write(f"\n--- Decision {i + 1} ---\n")
+                f.write(f"Decision: {decision.action.value}\n")
+                f.write(f"Reasoning: {decision.reasoning}\n")
+                if decision.event:
+                    f.write(f"Event: {decision.event.title} on {decision.event.date}\n")
+                if cal_id:
+                    f.write(f"Calendar event ID: {cal_id}\n")
 
     def log_error(self, error: str) -> None:
         """Log an error."""
@@ -160,7 +163,9 @@ Edge cases:
 - If it's spoken about as past tense, your decision should be to ignore it.
 - If you are obviously missing a date, your decision should be to ignore it.
 - If you have the date but are missing a start time, create the event with a null time.
-- In rare cases, a single post may announce multiple events. In this case, call submit_decision with action "flag_for_review" and explain that multiple events were found.
+- In rare cases, a single post may announce multiple events.
+  - If these are clearly distinct events with all the necessary details, create separate events by calling submit_decision multiple times.
+  - DO NOT create more than 5 events from a single post.  If you think more than 5 events are needed, flag_for_review instead.
 
 How to write a good description:
 If you can find these details in the post, they're always worth including.
@@ -257,7 +262,7 @@ TOOLS = [
     },
     {
         "name": "submit_decision",
-        "description": "Submit your final decision about this post. You MUST call this tool to complete the analysis.",
+        "description": "Submit a decision about this post. You MUST call this tool at least once. If the post announces multiple events, call it multiple times with done=false, then done=true on the last call.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -296,8 +301,12 @@ TOOLS = [
                     "type": ["string", "null"],
                     "description": "Calendar event ID if updating or canceling an existing event",
                 },
+                "done": {
+                    "type": "boolean",
+                    "description": "Set to true if this is your last decision for this post. Set to false if you plan to submit more decisions (e.g., multiple events from one post).",
+                },
             },
-            "required": ["is_event", "confidence", "action", "reasoning"],
+            "required": ["is_event", "confidence", "action", "reasoning", "done"],
         },
     }
 ]
@@ -311,9 +320,24 @@ class AnalysisContext:
         self.dry_run = dry_run
         self.input_tokens = 0
         self.output_tokens = 0
-        self.decision: ClaudeDecision | None = None
-        self.calendar_event_id: str | None = None
+        self.decisions: list[ClaudeDecision] = []
+        self.calendar_event_ids: list[str | None] = []
         self.logger = SessionLogger(post.guid)
+
+    @property
+    def decision(self) -> ClaudeDecision | None:
+        """Last decision (for backwards compat)."""
+        return self.decisions[-1] if self.decisions else None
+
+    @property
+    def calendar_event_id(self) -> str | None:
+        """Last calendar event ID (for backwards compat)."""
+        return self.calendar_event_ids[-1] if self.calendar_event_ids else None
+
+    @property
+    def submitted(self) -> bool:
+        """Whether at least one decision has been submitted."""
+        return len(self.decisions) > 0
 
     @property
     def cost_usd(self) -> float:
@@ -480,13 +504,15 @@ def handle_submit_decision(input_data: dict, ctx: AnalysisContext) -> dict:
 
 
 
-        ctx.decision = decision
-        ctx.calendar_event_id = calendar_event_id
+        ctx.decisions.append(decision)
+        ctx.calendar_event_ids.append(calendar_event_id)
 
+        done = input_data.get("done", True)
         return {
             "success": True,
             "action": decision.action.value,
             "calendar_event_id": calendar_event_id,
+            "done": done,
         }
 
     except ValidationError as e:
@@ -527,6 +553,7 @@ def analyze_post(post: RssPost, dry_run: bool = False) -> AnalysisContext:
         if response.stop_reason == "tool_use":
             tool_results = []
             assistant_content = []
+            done = False
 
             for block in response.content:
                 assistant_content.append(block)
@@ -543,19 +570,24 @@ def analyze_post(post: RssPost, dry_run: bool = False) -> AnalysisContext:
                         "content": content,
                     })
 
-                    # If submit_decision succeeded, we're done
-                    if block.name == "submit_decision" and ctx.decision is not None:
-                        ctx.logger.log_turn(response, tool_results)
-                        ctx.logger.log_final(ctx)
-                        return ctx
+                    if block.name == "submit_decision" and isinstance(result, dict) and result.get("done"):
+                        done = True
 
             ctx.logger.log_turn(response, tool_results)
+
+            if done and ctx.submitted:
+                ctx.logger.log_final(ctx)
+                return ctx
+
             messages.append({"role": "assistant", "content": assistant_content})
             messages.append({"role": "user", "content": tool_results})
 
         elif response.stop_reason == "end_turn":
-            # Claude stopped without calling submit_decision - this is an error
             ctx.logger.log_turn(response)
+            if ctx.submitted:
+                ctx.logger.log_final(ctx)
+                return ctx
+            # Claude stopped without ever calling submit_decision
             error_msg = (
                 f"Claude exited without calling submit_decision. "
                 f"Tokens used: {ctx.input_tokens} in / {ctx.output_tokens} out (${ctx.cost_usd:.4f})"
