@@ -86,13 +86,13 @@ dependencies = [
     { name = "google-auth" },
     { name = "httpx" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "typer" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "boto3" },
-    { name = "python-dotenv" },
 ]
 
 [package.metadata]
@@ -103,14 +103,12 @@ requires-dist = [
     { name = "google-auth", specifier = ">=2.20" },
     { name = "httpx", specifier = ">=0.25" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "python-dotenv", specifier = ">=1.0" },
     { name = "typer", specifier = ">=0.9" },
 ]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "boto3", specifier = ">=1.35" },
-    { name = "python-dotenv", specifier = ">=1.0" },
-]
+dev = [{ name = "boto3", specifier = ">=1.35" }]
 
 [[package]]
 name = "certifi"

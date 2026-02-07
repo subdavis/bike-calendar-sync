@@ -11,7 +11,7 @@ run = "uv run scripts/pull_db.py"
 run = "uv run scripts/push_db.py"
 
 [tasks.sync]
-run = "uv run calendar-sync process"
+run = "uv run calsync process"
 
 [tasks.cmd]
-run = "uv run calendar-sync"
+run = "uv run calsync"

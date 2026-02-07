@@ -12,7 +12,7 @@ You will need Google Cloud credentials.
 # Pull the latest DB
 mise run pull
 # Run
-mise run sync
+calsync process
 # Push the DB
 mise run push
 ```

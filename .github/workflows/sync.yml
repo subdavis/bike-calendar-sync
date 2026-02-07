@@ -38,7 +38,7 @@ jobs:
       - name: Run calendar sync
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: uv run calendar-sync process
+        run: uv run calsync process
 
       - name: Display logs
         if: always()
@@ -55,13 +55,11 @@ jobs:
           fi
 
       - name: Generate report
-        if: always()
         run: |
           mkdir -p _site
-          uv run calendar-sync report -o _site/index.html
+          uv run calsync report -o _site/index.html
 
       - name: Upload database to S3
-        if: always()
         env:
           ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
           SECRET_ACCESS_KEY: ${{ secrets.SECRET_ACCESS_KEY }}
@@ -69,14 +67,12 @@ jobs:
         run: uv run scripts/push_db.py
 
       - name: Upload Pages artifact
-        if: always()
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
     needs: sync
-    if: always()
     runs-on: ubuntu-latest
     permissions:
       pages: 'write'
