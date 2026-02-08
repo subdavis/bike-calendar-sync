@@ -1,6 +1,7 @@
 """HTML report generation for calendar-sync."""
 
 import html as html_lib
+from collections import defaultdict
 from datetime import datetime
 
 
@@ -13,28 +14,47 @@ DECISION_COLORS = {
 }
 
 
+def _day_label(post_time: str | None) -> str:
+    """Return a day header like 'Tuesday Feb 4' from an ISO timestamp."""
+    if not post_time or post_time == "-":
+        return "Unknown Date"
+    try:
+        dt = datetime.fromisoformat(post_time)
+        return dt.strftime("%A %b ") + str(dt.day)
+    except (ValueError, TypeError):
+        return "Unknown Date"
+
+
 def generate_report(entries: list[dict], total_cost: float) -> str:
     """Generate a static HTML report from processing history entries."""
-    cards = ""
+    # Group entries by day
+    grouped: dict[str, list[dict]] = defaultdict(list)
     for e in entries:
-        color = DECISION_COLORS.get(e["decision"], "#9ca3af")
-        title = html_lib.escape(e.get("post_title") or "-")
-        link = e.get("post_link") or ""
-        author = html_lib.escape(e.get("post_author") or "-")
-        guid = html_lib.escape(e["post_guid"])
-        reasoning = html_lib.escape(e.get("reasoning") or "-")
-        event_id = html_lib.escape(e.get("calendar_event_id") or "-")
-        cost = f"${e['cost_usd']:.4f}" if e.get("cost_usd") else "-"
-        tokens_in = f"{e.get('input_tokens') or 0:,}"
-        tokens_out = f"{e.get('output_tokens') or 0:,}"
-        processed = e["processed_at"][:19]
-        post_time = e.get("post_time") or "-"
-        if post_time != "-":
-            post_time = post_time[:19]
+        label = _day_label(e.get("post_time"))
+        grouped[label].append(e)
 
-        title_html = f'<a href="{html_lib.escape(link, quote=True)}">{title}</a>' if link else title
+    cards = ""
+    for day_label, day_entries in grouped.items():
+        cards += f'\n    <h2 class="day-header">{html_lib.escape(day_label)}</h2>'
+        for e in day_entries:
+            color = DECISION_COLORS.get(e["decision"], "#9ca3af")
+            title = html_lib.escape(e.get("post_title") or "-")
+            link = e.get("post_link") or ""
+            author = html_lib.escape(e.get("post_author") or "-")
+            guid = html_lib.escape(e["post_guid"])
+            reasoning = html_lib.escape(e.get("reasoning") or "-")
+            event_id = html_lib.escape(e.get("calendar_event_id") or "-")
+            cost = f"${e['cost_usd']:.4f}" if e.get("cost_usd") else "-"
+            tokens_in = f"{e.get('input_tokens') or 0:,}"
+            tokens_out = f"{e.get('output_tokens') or 0:,}"
+            processed = e["processed_at"][:19]
+            post_time = e.get("post_time") or "-"
+            if post_time != "-":
+                post_time = post_time[:19]
 
-        cards += f"""
+            title_html = f'<a href="{html_lib.escape(link, quote=True)}">{title}</a>' if link else title
+
+            cards += f"""
     <div class="card">
       <div class="card-header">
         <h2>{title_html}</h2>
@@ -75,6 +95,8 @@ def generate_report(entries: list[dict], total_cost: float) -> str:
   .reasoning {{ font-size: .85rem; color: #334155; white-space: pre-wrap; }}
   .card-footer {{ padding: .5rem 1rem; background: #f8fafc; font-size: .75rem; color: #64748b; display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; border-top: 1px solid #e2e8f0; }}
   .card-footer code {{ background: #e2e8f0; padding: 1px 4px; border-radius: 3px; font-size: .7rem; }}
+  .day-header {{ font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 .5rem; }}
+  .day-header:first-child {{ margin-top: 0; }}
   .summary {{ margin-top: 1rem; font-size: .85rem; color: #64748b; }}
 </style>
 </head>

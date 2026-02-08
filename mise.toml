@@ -15,3 +15,6 @@ run = "uv run calsync process"
 
 [tasks.cmd]
 run = "uv run calsync"
+
+[tasks.trigger]
+run = "gh workflow run sync.yml"

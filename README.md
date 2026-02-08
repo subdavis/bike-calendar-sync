@@ -6,7 +6,7 @@
 
 You will need Google Cloud credentials.
 
-## Running the tool
+## Running the tool locally
 
 ```bash
 # Pull the latest DB
@@ -15,4 +15,10 @@ mise run pull
 calsync process
 # Push the DB
 mise run push
+```
+
+## Triggering a remote flow
+
+```bash
+mise run trigger
 ```
