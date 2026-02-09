@@ -1,4 +1,5 @@
 """CLI for calendar-sync."""
+import os
 
 from datetime import datetime
 from typing import Optional
@@ -90,6 +91,8 @@ def process(
                 )
             total_cost += pf.cost_usd
             continue
+        else:
+            console.print(f"  [dim]Pre-filter result: {'likely event' if pf and pf.is_likely_event else 'unknown (no pre-filter)'}[/dim]")
 
         # Show prefilter cost if it ran before full analysis
         prefilter_input_tokens = pf.input_tokens if pf else 0

@@ -1,4 +1,7 @@
 """Pre-filter posts using Haiku to quickly identify non-events before full analysis."""
+from time import timezone
+from datetime import datetime
+from calendar_sync.claude import local_time_str, TIME_ZONE
 
 from anthropic import Anthropic
 
@@ -7,16 +10,22 @@ from .models import RssPost
 # Haiku 4.5 pricing per million tokens
 HAIKU_INPUT_COST_PER_M = 1.00
 HAIKU_OUTPUT_COST_PER_M = 5.00
-HAIKU_MODEL = "claude-haiku-4-5-20251001"
+HAIKU_MODEL = "claude-sonnet-4-5"
 
-PREFILTER_PROMPT = """You are a binary classifier. Given an RSS post from a cycling community Instagram account, determine if the post could plausibly be announcing an event (a ride, meetup, race, social gathering, etc. with a date/time).
+PREFILTER_PROMPT = f"""You are a binary classifier. Given an RSS post from a cycling community social account, determine if the post could plausibly be announcing an event (a ride, meetup, race, social gathering, etc. with a date/time).
 
 Answer with exactly one word: YES or NO.
 
-- YES means the post could be announcing an event and needs further analysis.
-- NO means the post is clearly not an event announcement (e.g., a motivational quote, a photo recap, a meme, a personal reflection, general community chatter).
+- YES means the post could be announcing (or modifying/postponing/canceling/clarifying) an upcoming future-tense event and needs further analysis.
+- NO means the post is clearly not an event announcement, or the post is written in past tense about an event that has already happened, and can be safely ignored.
 
-When in doubt, answer YES."""
+More instructions:
+* For the sake of reasoning about relative dates (i.e. "this saturday"), the current date and time is {local_time_str(datetime.now())}. The timezone is {TIME_ZONE}. 
+* If the event is referred to in future tense but seems to have happened in the recent past, answer YES.
+* If the post has so little content such that you'd probably need to see the images/videos to determine if it's an event, answer YES.
+
+do NOT print ANYTHING OTHER THAN YES or NO.
+"""
 
 
 class PrefilterResult:
@@ -43,11 +52,16 @@ def prefilter_post(post: RssPost) -> PrefilterResult:
     """
     client = Anthropic()
 
-    user_text = f"""Post title: {post.title}
-Post author: {post.author or 'Unknown'}
+    user_text = f"""Analyze this RSS post:
 
-Post content:
-{post.content}"""
+Title: {post.title}
+Author: {post.author or 'Unknown'}
+Link: {post.link}
+Published: {local_time_str(post.published) if post.published else 'Unknown'}
+
+Content:
+{post.content}
+"""
 
     response = client.messages.create(
         model=HAIKU_MODEL,
@@ -56,8 +70,11 @@ Post content:
         messages=[{"role": "user", "content": user_text}],
     )
 
-    answer = response.content[0].text.strip().upper()
+    answer = response.content[0].text.splitlines()[0].strip().upper()  # Get the first line of the response
     is_likely_event = answer != "NO"
+   
+    if len(response.content[0].text) > 3:
+        print(f"Warning: Haiku pre-filter response had more than one message. Using only the first message's text. Full response: {response.content}")
 
     return PrefilterResult(
         is_likely_event=is_likely_event,
