@@ -497,7 +497,7 @@ def validate_day_of_week(date_str: str, day_of_week: str) -> str | None:
     days_backward = (actual_idx - expected_idx) % 7
 
     def fmt(dt: "date") -> str:
-        return dt.strftime("%b") + " " + str(dt.day)
+        return f"{dt.strftime('%b')} {dt.day}, {dt.year}"
 
     prev_date = d - timedelta(days=days_backward)
     next_date = d + timedelta(days=days_forward)
