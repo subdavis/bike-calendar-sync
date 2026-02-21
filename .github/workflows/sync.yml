@@ -58,6 +58,8 @@ jobs:
         run: |
           mkdir -p _site
           uv run calsync report -o _site/index.html
+        env:
+          CALENDAR_ID: ${{ vars.CALENDAR_ID }}
 
       - name: Upload database to S3
         env:
