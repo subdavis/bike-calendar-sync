@@ -400,6 +400,8 @@ def fetch_events(
     ),
 ):
     """Fetch all calendar events (1 week ago to infinity) and write to a JSON file."""
+    db.init_db()
+
     start_date = (datetime.now(timezone.utc) - timedelta(weeks=1)).strftime("%Y-%m-%d")
 
     console.print(f"[bold]Fetching events from:[/bold] {start_date} onward")
@@ -407,6 +409,16 @@ def fetch_events(
     events = calendar.fetch_all_events(start_date=start_date)
 
     console.print(f"[green]Found {len(events)} events[/green]")
+
+    # Join with local DB rows on calendar event id → extra_metadata
+    event_ids = [e["id"] for e in events if "id" in e]
+    db_rows = db.get_rows_by_calendar_event_ids(event_ids)
+
+    for event in events:
+        event_id = event.get("id")
+        row = db_rows.get(event_id)
+        event["extra_metadata"] = row
+        event["image_urls"] = rss.extract_image_urls(row["post_content"] or "") if row and row.get("post_content") else []
 
     out_path = Path(output)
     out_path.parent.mkdir(parents=True, exist_ok=True)

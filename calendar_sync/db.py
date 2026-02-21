@@ -171,6 +171,37 @@ def get_history(limit: int = 20) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def get_rows_by_calendar_event_ids(event_ids: list[str]) -> dict[str, dict]:
+    """Return a mapping of calendar_event_id → most-recent DB row for each id."""
+    if not event_ids:
+        return {}
+
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    placeholders = ",".join("?" * len(event_ids))
+    cursor.execute(
+        f"""
+        SELECT * FROM processed_posts
+        WHERE calendar_event_id IN ({placeholders})
+        ORDER BY id DESC
+        """,
+        event_ids,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+
+    # Keep only the most-recent row per calendar_event_id (ORDER BY id DESC)
+    result: dict[str, dict] = {}
+    for row in rows:
+        d = dict(row)
+        eid = d["calendar_event_id"]
+        if eid not in result:
+            result[eid] = d
+    return result
+
+
 def get_total_cost() -> float:
     """Get total cost across all processed posts."""
     conn = sqlite3.connect(get_db_path())
