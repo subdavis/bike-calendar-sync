@@ -167,7 +167,7 @@ You have access to these tools:
 
 Workflow:
 1. Analyze the post text to determine if it could plausibly be an event
-2. If it's clearly NOT an event (quotes, reflections, general photos with no event info), submit_decision with action "ignore" immediately
+2. If it's clearly NOT an event (quotes, reflections, general photos with no event info), submit_decision with action "ignore" immediately.
 3. If it COULD be an event, call get_images to check for event posters/flyers with dates, times, and locations
 4. If it looks like an event, use search tools to check if it already exists
 5. Call submit_decision with your decision
@@ -179,9 +179,9 @@ For submit_decision, you must provide:
 - confidence: number 0.0-1.0
 - action: "create", "update", "cancel", "ignore", or "flag_for_review"
 - reasoning: explanation of your decision
-- event: object with title, date (YYYY-MM-DD), time (HH:MM or null), etc. Required if is_event=true
+- event: object with title, date (YYYY-MM-DD), time (HH:MM or null), etc. Always required if is_event=true.  If action=ignore because of a duplicate, event should still be provided with the existing event details! This is critical for tracking and reporting.
   - day_of_week: optional field inside the event object. If you know the day of week for the event date (e.g. the post says "this Saturday"), include it (e.g. "Saturday"). The tool will validate your date calculation and return a helpful error with the correct date if it is wrong.
-- related_event_id: calendar event ID if updating/canceling an existing event
+- related_event_id: calendar event ID if updating/canceling an existing event or if the action is related to an existing event (for example, ignored because duplicate)
 
 For search_events_by_date, the optional day_of_week parameter works the same way: if you know the day of week for start_date, provide it and the tool will catch any date calculation mistake before you search.
 
@@ -327,7 +327,7 @@ TOOLS = [
                 },
                 "event": {
                     "type": ["object", "null"],
-                    "description": "Event details. Required if is_event=true. Must have: title (string), date (YYYY-MM-DD string), time (HH:MM string or null), end_time (HH:MM string or null), timezone (string, default America/Chicago), location (string or null), description (string or null)",
+                    "description": "Event details. Always required if is_event=true (even if action=ignore because of a duplicate!) Must have: title (string), date (YYYY-MM-DD string), time (HH:MM string or null), end_time (HH:MM string or null), timezone (string, default America/Chicago), location (string or null), description (string or null)",
                     "properties": {
                         "title": {"type": "string"},
                         "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
@@ -345,7 +345,7 @@ TOOLS = [
                 },
                 "related_event_id": {
                     "type": ["string", "null"],
-                    "description": "Calendar event ID if updating or canceling an existing event",
+                    "description": "Calendar event ID if updating or canceling an existing event or if the action is related to an existing event (for example, ignored because duplicate).",
                 },
                 "done": {
                     "type": "boolean",
@@ -604,7 +604,7 @@ def handle_submit_decision(input_data: dict, ctx: AnalysisContext) -> dict:
         )
 
         # Validation passed - now execute the action
-        calendar_event_id = None
+        calendar_event_id = decision.related_event_id
 
         if not ctx.dry_run:
             if decision.action == Action.CREATE and decision.event:
@@ -626,6 +626,7 @@ def handle_submit_decision(input_data: dict, ctx: AnalysisContext) -> dict:
             post_guid=ctx.post.guid,
             decision=decision.action,
             calendar_event_id=calendar_event_id,
+            post_content=ctx.post.content,
             reasoning=decision.reasoning,
             input_tokens=ctx.input_tokens,
             output_tokens=ctx.output_tokens,

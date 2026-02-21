@@ -3,7 +3,6 @@
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 from google.oauth2 import service_account
@@ -12,14 +11,17 @@ from googleapiclient.discovery import build
 from .models import CalendarEvent, EventDetails
 
 # Default calendar ID - can be overridden
-DEFAULT_CALENDAR_ID = "5b0f9ebb2f4cca6705cf48ad4e4562964a7e3f90d6f2646e11c19788912c86ba@group.calendar.google.com"
+CALENDAR_ID = os.getenv("CALENDAR_ID")
+
+if not CALENDAR_ID:
+    raise ValueError("CALENDAR_ID environment variable is not set")
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
 def get_credentials_path() -> Path:
     """Get the credentials file path from env var or default to cwd."""
-    env_path = os.environ.get("CAL_CREDS_PATH")
+    env_path = os.getenv("CAL_CREDS_PATH")
     if env_path:
         return Path(env_path)
     return Path().cwd() / "cal-creds.json"
@@ -40,7 +42,6 @@ def get_calendar_service():
 def search_events_by_date(
     start_date: str,
     end_date: str,
-    calendar_id: str = DEFAULT_CALENDAR_ID,
 ) -> list[CalendarEvent]:
     """Search calendar for events in a date range.
 
@@ -60,7 +61,7 @@ def search_events_by_date(
     events_result = (
         service.events()
         .list(
-            calendarId=calendar_id,
+            calendarId=CALENDAR_ID,
             timeMin=time_min,
             timeMax=time_max,
             singleEvents=True,
@@ -74,7 +75,6 @@ def search_events_by_date(
 
 def search_events_by_keyword(
     keywords: list[str],
-    calendar_id: str = DEFAULT_CALENDAR_ID,
     days_ahead: int = 90,
 ) -> list[CalendarEvent]:
     """Search calendar for events matching any of the given keywords.
@@ -102,7 +102,7 @@ def search_events_by_keyword(
         events_result = (
             service.events()
             .list(
-                calendarId=calendar_id,
+                calendarId=CALENDAR_ID,
                 timeMin=time_min,
                 timeMax=time_max,
                 q=keyword,
@@ -130,9 +130,45 @@ def search_events_by_keyword(
     return all_events[:5]
 
 
+def fetch_all_events(
+    start_date: str,
+) -> list[dict]:
+    """Fetch all events from start_date to infinity without expanding recurring events.
+
+    Args:
+        start_date: ISO date string (e.g., "2026-02-14")
+
+    Returns: Raw Google Calendar event dicts (recurring events not expanded)
+    """
+    service = get_calendar_service()
+
+    time_min = f"{start_date}T00:00:00Z"
+
+    all_items: list[dict] = []
+    page_token: str | None = None
+
+    while True:
+        kwargs: dict = dict(
+            calendarId=CALENDAR_ID,
+            timeMin=time_min,
+            singleEvents=False,
+            orderBy="updated",
+        )
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        result = service.events().list(**kwargs).execute()
+        all_items.extend(result.get("items", []))
+
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+
+    return all_items
+
+
 def create_event(
     event: EventDetails,
-    calendar_id: str = DEFAULT_CALENDAR_ID,
 ) -> str:
     """Create a new calendar event.
 
@@ -143,14 +179,13 @@ def create_event(
     # Build event body
     body = _build_event_body(event)
 
-    result = service.events().insert(calendarId=calendar_id, body=body).execute()
+    result = service.events().insert(calendarId=CALENDAR_ID, body=body).execute()
     return result["id"]
 
 
 def update_event(
     event_id: str,
     event: EventDetails,
-    calendar_id: str = DEFAULT_CALENDAR_ID,
 ) -> str:
     """Update an existing calendar event.
 
@@ -162,7 +197,7 @@ def update_event(
 
     result = (
         service.events()
-        .update(calendarId=calendar_id, eventId=event_id, body=body)
+        .update(calendarId=CALENDAR_ID, eventId=event_id, body=body)
         .execute()
     )
     return result["id"]
@@ -170,11 +205,10 @@ def update_event(
 
 def delete_event(
     event_id: str,
-    calendar_id: str = DEFAULT_CALENDAR_ID,
 ) -> None:
     """Delete a calendar event."""
     service = get_calendar_service()
-    service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
+    service.events().delete(calendarId=CALENDAR_ID, eventId=event_id).execute()
 
 
 def _parse_event(event_data: dict) -> CalendarEvent:

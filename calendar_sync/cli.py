@@ -1,17 +1,21 @@
 """CLI for calendar-sync."""
 
-import os
+from dotenv import load_dotenv
+import json
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.table import Table
-from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from . import calendar, claude, db, prefilter, report, rss
-from .models import Action
+from .models import Action, RssPost
 
 
 def format_local_time(iso_str: str | None) -> str:
@@ -19,10 +23,11 @@ def format_local_time(iso_str: str | None) -> str:
     return claude.local_time_str(iso_str)
 
 
-# Load environment variables from .env file
-load_dotenv()
-
-app = typer.Typer(help="Sync RSS feed events to Google Calendar using Claude")
+app = typer.Typer(
+    help="Sync RSS feed events to Google Calendar using Claude",
+    invoke_without_command=True,
+    no_args_is_help=True,
+)
 console = Console()
 
 DEFAULT_FEED = "https://rssglue.subdavis.com/feed/cycling-merge/rss"
@@ -46,7 +51,7 @@ def process(
     console.print(f"Found {len(posts)} posts in feed")
 
     # Filter to unprocessed posts, oldest first
-    unprocessed = [p for p in posts if not db.is_processed(p.guid)]
+    unprocessed: list[RssPost] = [p for p in posts if not db.is_processed(p.guid)]
     unprocessed.sort(key=lambda p: p.published or datetime.min)
     console.print(f"[green]{len(unprocessed)} unprocessed posts[/green]")
 
@@ -80,9 +85,7 @@ def process(
             pf = None
 
         if pf and not pf.is_likely_event:
-            reasoning = (
-                "Pre-filter: Haiku classified this post as not an event announcement."
-            )
+            reasoning = "Pre-filter: this is not an event announcement."
             console.print(f"  [dim]Pre-filtered as non-event[/dim]")
             console.print(f"  [cyan]Decision:[/cyan] [dim]ignore[/dim]")
             console.print(f"  [dim]{reasoning}[/dim]")
@@ -93,6 +96,7 @@ def process(
                 db.record_processed(
                     post_guid=post.guid,
                     decision=Action.IGNORE,
+                    post_content=post.content,
                     reasoning=reasoning,
                     input_tokens=pf.input_tokens,
                     output_tokens=pf.output_tokens,
@@ -332,7 +336,7 @@ def validate():
         raise typer.Exit(1)
 
     # Try to access the calendar
-    calendar_id = calendar.DEFAULT_CALENDAR_ID
+    calendar_id = calendar.CALENDAR_ID
     console.print(f"[dim]Calendar ID:[/dim] {calendar_id[:40]}...")
 
     try:
@@ -384,6 +388,31 @@ def validate():
         console.print(f"[yellow]Warning: Could not list events:[/yellow] {e}")
 
     console.print("\n[green]Calendar access validated successfully![/green]")
+
+
+@app.command("fetch-events")
+def fetch_events(
+    output: str = typer.Option(
+        "website/data/events.json",
+        "--output",
+        "-o",
+        help="Output JSON file path",
+    ),
+):
+    """Fetch all calendar events (1 week ago to infinity) and write to a JSON file."""
+    start_date = (datetime.now(timezone.utc) - timedelta(weeks=1)).strftime("%Y-%m-%d")
+
+    console.print(f"[bold]Fetching events from:[/bold] {start_date} onward")
+
+    events = calendar.fetch_all_events(start_date=start_date)
+
+    console.print(f"[green]Found {len(events)} events[/green]")
+
+    out_path = Path(output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(events, indent=2, default=str))
+
+    console.print(f"[green]Written to:[/green] {out_path}")
 
 
 if __name__ == "__main__":

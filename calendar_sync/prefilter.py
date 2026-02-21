@@ -1,6 +1,5 @@
-"""Pre-filter posts using Haiku to quickly identify non-events before full analysis."""
+"""Pre-filter posts to quickly identify non-events before full analysis."""
 
-from time import timezone
 from datetime import datetime
 from calendar_sync.claude import local_time_str, TIME_ZONE
 
@@ -31,7 +30,7 @@ do NOT print ANYTHING OTHER THAN YES or NO.
 
 
 class PrefilterResult:
-    """Result from the Haiku pre-filter."""
+    """Result from the pre-filter."""
 
     def __init__(self, is_likely_event: bool, input_tokens: int, output_tokens: int):
         self.is_likely_event = is_likely_event
@@ -81,7 +80,7 @@ Content:
 
     if len(first_block.text) > 3:
         print(
-            f"Warning: Haiku pre-filter response had more than one message. Using only the first message's text. Full response: {response.content}"
+            f"Warning: pre-filter response had more than one message. Using only the first message's text. Full response: {response.content}"
         )
 
     return PrefilterResult(

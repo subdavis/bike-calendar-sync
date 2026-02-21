@@ -28,6 +28,7 @@ def init_db() -> None:
             processed_at TEXT NOT NULL,
             decision TEXT NOT NULL,
             calendar_event_id TEXT,
+            post_content TEXT,
             reasoning TEXT,
             input_tokens INTEGER,
             output_tokens INTEGER,
@@ -82,6 +83,7 @@ def record_processed(
     post_guid: str,
     decision: Action,
     calendar_event_id: Optional[str] = None,
+    post_content: str = "",
     reasoning: Optional[str] = None,
     input_tokens: int = 0,
     output_tokens: int = 0,
@@ -99,16 +101,17 @@ def record_processed(
     cursor.execute(
         """
         INSERT INTO processed_posts
-        (post_guid, processed_at, decision, calendar_event_id, reasoning,
+        (post_guid, processed_at, decision, calendar_event_id, post_content, reasoning,
          input_tokens, output_tokens, cost_usd, post_title, post_author,
          post_time, post_link, event_title, event_date, event_time, event_location)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             post_guid,
             datetime.now(timezone.utc).isoformat(),
             decision.value,
             calendar_event_id,
+            post_content,
             reasoning,
             input_tokens,
             output_tokens,

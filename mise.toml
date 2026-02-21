@@ -10,14 +10,10 @@ run = "uv run scripts/pull_db.py"
 [tasks.push]
 run = "uv run scripts/push_db.py"
 
-[tasks.sync]
-run = "uv run calsync process"
-
-[tasks.cmd]
-run = "uv run calsync"
-
 [tasks.trigger]
 run = "gh workflow run sync.yml"
+
+# Development tasks
 
 [tasks."validate:ty"]
 run = "uv run ty check"

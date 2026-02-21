@@ -1,12 +1,19 @@
+# Website
+
+The website is a static hugo site that builds every N hours.
+
+
+# Event management tool
+
 ## Setup
 
 1. Install `uv`
 1. `uv sync`
-1. `cp .env.example .env` and update.
+1. `cp .env.example .env` and then edit `.env` with API keys.
 
 You will need Google Cloud credentials.
 
-## Running the tool locally
+## Running calendar sync
 
 ```bash
 # Pull the latest DB

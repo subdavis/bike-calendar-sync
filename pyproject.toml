@@ -1,7 +1,7 @@
 [project]
 name = "calendar-sync"
 version = "0.1.0"
-description = "Sync RSS feed events to Google Calendar using Claude"
+description = "Sync RSS feed events to Google Calendar"
 requires-python = ">=3.11"
 dependencies = [
     "feedparser>=6.0",
