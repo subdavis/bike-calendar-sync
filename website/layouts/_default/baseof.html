@@ -10,7 +10,7 @@
   <script defer src="https://umami.subdavis.com/script.js" data-website-id="d53bc478-a276-48cf-a3ae-7ac3f68a66da" data-domains="mpls.bike,events.bikegroups.org"></script>
 </head>
 {{ $bg := resources.Get "/images/bg.webp" }}
-<body class="m-0 font-sans text-gray-900 leading-relaxed relative">
+<body class="m-0 font-sans text-gray-900 leading-relaxed relative" ontouchstart="">
   <div class="absolute inset-0 bg-repeat bg-center opacity-6 -z-10" style="background-image: url('{{ $bg.Permalink }}')"></div>
   <a class="absolute -top-full left-0 px-4 py-2 bg-white text-black z-50 no-underline font-bold focus:top-0" href="#main-content">Skip to main content</a>
   <header role="banner" class=" text-black text-center py-16">

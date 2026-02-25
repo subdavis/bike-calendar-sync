@@ -1,25 +1,25 @@
 {{ define "main" }}
 
 {{/* ===== SCHEDULE VIEW ===== */}}
-<section id="schedule-view" aria-label="Upcoming cycling events" class="-mt-2">
+<section aria-label="Upcoming cycling events" class="-mt-2">
   {{ $prevDate := "" }}
-  {{ range sort site.Data.events "start.dateTime" "asc" }}
-    {{ $startRaw := or .start.dateTime .start.date }}
+  {{ range sort .Pages "Params.sort_key" "asc" }}
+    {{ $startRaw := or .Params.start.dateTime .Params.start.date }}
     {{ $curDate := (time.AsTime $startRaw | time.Format "2006-01-02") }}
 
     {{/* Date header for new date groups */}}
     {{ if ne $curDate $prevDate }}
       <h3 class="flex items-center pt-3 pb-2" role="heading" aria-level="3">
-        <span class="text-sm font-extrabold text-stone-700 tracking-wide">{{ time.AsTime $startRaw | time.Format "Monday, Jan 2" }}</span>
+        <span class="text-sm font-extrabold text-stone-700 tracking-wide" data-date="{{ $curDate }}">{{ time.AsTime $startRaw | time.Format "Monday, Jan 2" }}</span>
       </h3>
     {{ end }}
     {{ $prevDate = $curDate }}
 
     {{/* Schedule event row */}}
-    <a href="#event-{{ .id }}" class="flex items-stretch gap-3 no-underline text-inherit py-1 visited:text-inherit" data-event-id="{{ .id }}" aria-label="{{ .summary }}" data-umami-event="click-event" data-umami-event-title="{{ .summary }}">
+    <a href="{{ .RelPermalink }}" class="flex items-stretch gap-3 no-underline text-inherit py-1 visited:text-inherit link-btn" aria-label="{{ .Params.summary }}" data-umami-event="click-event" data-umami-event-title="{{ .Params.summary }}">
       <div class="w-15 min-w-15 text-xs font-mono text-stone-700 pt-2 text-right shrink-0">
-        {{ if .start.dateTime }}
-          {{ time.AsTime .start.dateTime | time.Format "3:04 PM" }}
+        {{ if .Params.start.dateTime }}
+          {{ time.AsTime .Params.start.dateTime | time.Format "3:04 PM" }}
         {{ else }}
           All day
         {{ end }}
@@ -27,11 +27,11 @@
       <div class="flex flex-1 min-w-0 rounded-lg overflow-hidden border border-gray-300 bg-white">
         <div class="w-1.5 min-w-1.5 bg-stone-600"></div>
         <div class="flex flex-col gap-0.5 py-1 px-3 min-w-0">
-          <span class="font-semibold text-[0.95rem] whitespace-nowrap overflow-hidden text-ellipsis">{{ .summary }}</span>
-          {{ with .location }}
+          <span class="font-semibold text-[0.95rem] whitespace-nowrap overflow-hidden text-ellipsis">{{ .Params.summary }}</span>
+          {{ with .Params.location }}
             <span class="text-xs text-stone-600 whitespace-nowrap overflow-hidden text-ellipsis">{{ . }}</span>
           {{ end }}
-          {{ with .recurrence_label }}
+          {{ with .Params.recurrence_label }}
             <span class="text-xs text-stone-600 font-semibold">{{ . }}</span>
           {{ end }}
         </div>
@@ -40,149 +40,20 @@
   {{ end }}
 </section>
 
-{{/* ===== EVENT DETAIL VIEWS (hidden by default, shown via JS) ===== */}}
-{{ range site.Data.events }}
-<article id="event-{{ .id }}" class="event-detail" aria-label="{{ .summary }}" hidden>
-  <nav class="mb-4">
-    <a href="#" class="text-sm no-underline text-blue-700 font-semibold event-detail__back" aria-label="Back to schedule">&larr; Back to schedule</a>
-  </nav>
-
-  {{/* Dark gray hero card */}}
-  <div class="bg-[#3c4043] text-white p-4 rounded-t-lg">
-    <h2 class="m-0 font-bold text-2xl leading-tight">{{ .summary }}</h2>
-  </div>
-
-  <div class="border bg-white border-gray-300 border-t-0 rounded-b-lg py-4 px-5 flex flex-col gap-3 mb-6">
-    {{/* Date and Time */}}
-    <div class="flex gap-3 text-sm leading-relaxed">
-      <span class="text-base shrink-0 w-6 text-center" aria-hidden="true">📅</span>
-      <div>
-        {{ if .start.dateTime }}
-          <time datetime="{{ .start.dateTime }}">
-            {{ time.AsTime .start.dateTime | time.Format "Monday, January 2, 2006" }}
-          </time>
-          <br>
-          <span class="text-stone-500">
-            {{ time.AsTime .start.dateTime | time.Format "3:04 PM" }}
-            {{ with .end.dateTime }} &ndash; {{ time.AsTime . | time.Format "3:04 PM" }}{{ end }}
-          </span>
-        {{ else if .start.date }}
-          {{ $startDate := time.AsTime .start.date }}
-          {{ $endDate := time.AsTime .end.date }}
-          {{ $endDisplay := $endDate.AddDate 0 0 -1 }}
-          {{ if eq ($startDate.Format "2006-01-02") ($endDisplay.Format "2006-01-02") }}
-            <time datetime="{{ .start.date }}">
-              {{ $startDate | time.Format "Monday, January 2, 2006" }} &mdash; All Day
-            </time>
-          {{ else }}
-            <time datetime="{{ .start.date }}/{{ .end.date }}">
-              {{ $startDate | time.Format "Mon, Jan 2" }} &ndash; {{ $endDisplay | time.Format "Mon, Jan 2, 2006" }}
-            </time>
-          {{ end }}
-        {{ end }}
-        {{ with .recurrence_label }}
-          <br><span class="text-xs font-semibold">{{ . }}</span>
-        {{ end }}
-      </div>
-    </div>
-
-    {{/* Location */}}
-    {{ with .location }}
-    <div class="flex gap-3 text-sm leading-relaxed">
-      <span class="text-base shrink-0 w-6 text-center" aria-hidden="true">📍</span>
-      <div>{{ . }}</div>
-    </div>
-    {{ end }}
-
-    {{/* Google Calendar link */}}
-    {{ with .htmlLink }}
-    <div class="flex gap-3 text-sm leading-relaxed">
-      <span class="text-base shrink-0 w-6 text-center" aria-hidden="true">🔗</span>
-      <div class="text-blue-700 underline" ><a href="{{ . }}" target="_blank" rel="noopener noreferrer">View on Google Calendar<span class="sr-only"> (opens in new tab)</span></a></div>
-    </div>
-    {{ end }}
-
-    <hr class="border-stone-300 my-4">
-
-    {{/* Description */}}
-    {{ with .description }}
-    <div class="text-sm leading-relaxed px-1 mb-2 [&_img]:hidden">
-      {{ . | safeHTML }}
-    </div>
-    {{ end }}
-  </div>
-
-
-
-  {{/* Images — only if they exist */}}
-  {{ with .image_urls }}
-  <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 mb-6 max-sm:grid-cols-1">
-    {{ range . }}
-    <div class="rounded-lg overflow-hidden">
-      <img src="{{ . }}" alt="Event photo" loading="lazy" class="w-full h-auto block">
-    </div>
-    {{ end }}
-  </div>
-  {{ end }}
-</article>
-{{ end }}
-
 <script>
-(function () {
-  var scheduleView = document.getElementById('schedule-view');
-  var allDetails = document.querySelectorAll('.event-detail');
-  var currentDetail = null;
-
-  function showSchedule() {
-    scheduleView.hidden = false;
-    allDetails.forEach(function (d) { d.hidden = true; });
-    currentDetail = null;
-    window.scrollTo(0, 0);
+(function() {
+  var headers = document.querySelectorAll('[data-date]');
+  if (!headers.length) return;
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (var i = 0; i < 2 && i < headers.length; i++) {
+    var parts = headers[i].dataset.date.split('-');
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    var days = Math.round((d - today) / 86400000);
+    if (days === 0) headers[i].textContent = 'Today';
+    else if (days === 1) headers[i].textContent = 'Tomorrow';
   }
-
-  function showEvent(id) {
-    var el = document.getElementById('event-' + id);
-    if (!el) return;
-    scheduleView.hidden = true;
-    allDetails.forEach(function (d) { d.hidden = true; });
-    el.hidden = false;
-    currentDetail = el;
-    window.scrollTo(0, 0);
-  }
-
-  function handleHash() {
-    var hash = window.location.hash;
-    if (hash && hash.startsWith('#event-')) {
-      var id = hash.slice(7); // remove '#event-'
-      showEvent(id);
-    } else {
-      showSchedule();
-    }
-  }
-
-  // Event links
-  document.querySelectorAll('[data-event-id]').forEach(function (link) {
-    link.addEventListener('click', function (e) {
-      e.preventDefault();
-      var id = this.getAttribute('data-event-id');
-      window.location.hash = 'event-' + id;
-    });
-  });
-
-  // Back buttons
-  document.querySelectorAll('.event-detail__back').forEach(function (link) {
-    link.addEventListener('click', function (e) {
-      e.preventDefault();
-      history.pushState(null, '', window.location.pathname);
-      showSchedule();
-    });
-  });
-
-  // Handle hash changes (back/forward)
-  window.addEventListener('hashchange', handleHash);
-
-  // Initial load
-  handleHash();
 })();
 </script>
+
 {{ end }}

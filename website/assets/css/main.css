@@ -17,3 +17,9 @@ article.event-detail a {
 .main-heading {
   font-family: 'Cabin Sketch', cursive;
 }
+
+.link-btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  @apply active:bg-stone-200;
+}

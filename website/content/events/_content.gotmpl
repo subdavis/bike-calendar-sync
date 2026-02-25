@@ -1,0 +1,12 @@
+{{/* Content adapter: create one page per event from data/events.json */}}
+{{ range site.Data.events }}
+  {{ $sortKey := or .start.dateTime .start.date }}
+  {{ $params := merge . (dict "sort_key" $sortKey) }}
+  {{ $page := dict
+    "kind" "page"
+    "path" .id
+    "title" .summary
+    "params" $params
+  }}
+  {{ $.AddPage $page }}
+{{ end }}

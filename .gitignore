@@ -21,3 +21,5 @@ website/public/
 
 node_modules/
 hugo_stats.json
+
+.DS_Store
