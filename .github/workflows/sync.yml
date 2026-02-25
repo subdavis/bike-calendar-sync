@@ -2,8 +2,8 @@ name: Calendar Sync
 
 on:
   schedule:
-    # Run nightly at 3:30 AM UTC (9:30 PM CST)
-    - cron: '30 2 * * *'
+    # Run every 2 hours at 12 minutes past the hour
+    - cron: '12 */2 * * *'
   workflow_dispatch:
     # Allow manual trigger from GitHub Actions UI
 
@@ -61,6 +61,11 @@ jobs:
           uv run calsync report -o _site/index.html
         env:
           CALENDAR_ID: ${{ vars.CALENDAR_ID }}
+
+      - name: Generate the site data
+        env:
+          CALENDAR_ID: ${{ vars.CALENDAR_ID }}
+        run: uv run calsync fetch-events
 
       - name: Upload database to S3
         env:
