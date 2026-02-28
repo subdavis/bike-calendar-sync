@@ -2,7 +2,7 @@ name: Process Event Image
 
 on:
   issues:
-    types: [opened]
+    types: [opened, reopened]
 
 jobs:
   process:
@@ -83,15 +83,20 @@ jobs:
           git checkout -b "$branch"
           git add website/static/event-images/
           git commit -m "Add event images for ${EVENT_ID} (fixes #${ISSUE_NUMBER})"
-          git push origin "$branch"
+          git push --force origin "$branch"
 
-          pr_url=$(gh pr create \
-            --title "Add images for event ${EVENT_ID}" \
-            --body "Adds uploaded images for event \`${EVENT_ID}\`.
+          existing_pr=$(gh pr list --head "$branch" --json url --jq '.[0].url')
+          if [ -n "$existing_pr" ]; then
+            pr_url="$existing_pr"
+          else
+            pr_url=$(gh pr create \
+              --title "Add images for event ${EVENT_ID}" \
+              --body "Adds uploaded images for event \`${EVENT_ID}\`.
 
           Closes #${ISSUE_NUMBER}" \
-            --head "$branch" \
-            --base main)
+              --head "$branch" \
+              --base main)
+          fi
 
           gh issue comment "${ISSUE_NUMBER}" \
             --body "Images downloaded and PR created: ${pr_url}"
