@@ -1,21 +1,40 @@
-# Website
+# mpls.bike
 
-The website is a static hugo site that builds every N hours.
+This is the source code for mpls.bike and some tools for managing it.
 
+## Website
 
-# Event management tool
+Install [hugo](https://gohugo.io/).
 
-## Setup
+```bash
+brew install hugo
+cd website
+hugo serve
+```
 
-1. Install `uv`
+Updating the website event data requires the latest data from google calendar merged with the latest SQLIte DB. 
+
+```bash
+mise run pull
+calsync fetch-events
+hugo serve
+```
+
+See `.github/workflows/sync.yml` for details.
+
+## Management Tools
+
+1. Install [`uv`](https://docs.astral.sh/uv/)
 1. `uv sync`
 1. `cp .env.example .env` and then edit `.env` with API keys.
 
-You will need Google Cloud credentials.
+The calendar management tool relies on a SQLite database that is kept in a google cloud bucket.
 
-## Running calendar sync
+Running calendar sync:
 
 ```bash
+# Check that things are installed correctly
+calsync --help
 # Pull the latest DB
 mise run pull
 # Run
@@ -24,24 +43,18 @@ calsync process
 mise run push
 ```
 
-## Triggering a remote flow
+Triggering a github action workflow:
 
 ```bash
 mise run trigger
+
+# optionally watch it from the command line
 gh run list
 gh run watch
 ```
 
-## Development
+Code validation
 
 ```bash
 mise run validate
-```
-
-## Adding images to the website
-
-Strip ICC color profiles from images before committing. Embedded color profiles (e.g. sRGB) cause the image background to appear as a different shade of white from the page background on iOS/iPadOS Safari with wide-gamut (P3) displays.
-
-```bash
-magick input.jpg -strip output.jpg
 ```
